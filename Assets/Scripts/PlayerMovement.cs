@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -9,16 +10,56 @@ public class PlayerMovement : MonoBehaviour
     private float dragDistance;  //minimum distance for a swipe to be registered
     [SerializeField] private Rigidbody rb;
     [SerializeField] private float speed;
+    
+    private List<Transform> snake = new List<Transform>();
+
+    [SerializeField] private GameObject head;
+    [SerializeField] private GameObject midSection;
+    [SerializeField] private GameObject tail;
+    
+
+
+    [SerializeField]
+    private float rotateSpeed;
+    [SerializeField]
+    private float minDistance;
+   
+    Vector3 newDirection;
+    [SerializeField] private Transform rightTarget;
+    [SerializeField] private Transform leftTarget;
+
+    private float dis;
+    private Transform curBodyPart;
+    private Transform prevBodyPart;
+
+    private string dir = "Up";
+
+    [SerializeField] private int beginSize;
     void Start()
     {
         dragDistance = Screen.height * 15 / 100; //dragDistance is 15% height of the screen
         rb = GetComponent<Rigidbody>();
+        snake.Add(head.transform);
+
+        //snake.AddLast(Instantiate(tail));
+
+        for (int i = 0; i < beginSize - 1; i++)
+        {
+            AddBodyPart();
+        }
+        
     }
 
     void Update()
+    { 
+    
+    }
+    void FixedUpdate()
     {
 
         
+       
+        MoveForward(transform.forward);
 
         if (Input.touchCount == 1) // user is touching the screen with a single touch
         {
@@ -45,12 +86,39 @@ public class PlayerMovement : MonoBehaviour
                         if ((lp.x > fp.x))  //If the movement was to the right)
                         {   //Right swipe
                             Debug.Log("Right Swipe");
-                            MoveForward(transform.right);
+                            if (dir == "Up" || dir == "Down")
+                            {
+                                
+                                if (dir == "Up")
+                                {
+                                    newDirection = rightTarget.position - transform.position;
+                                }
+                                else if (dir == "Down")
+                                {
+                                    newDirection = leftTarget.position - transform.position;
+                                }
+                               
+                                dir = "Right";
+                            }
+                            
                         }
                         else
                         {   //Left swipe
                             Debug.Log("Left Swipe");
-                            MoveForward(-transform.right);
+                            if (dir == "Up" || dir == "Down")
+                            {
+                                
+                                if (dir == "Up")
+                                {
+                                    newDirection = leftTarget.position - transform.position;
+                                }
+                                else if (dir == "Down")
+                                {
+                                    newDirection = rightTarget.position - transform.position;
+                                }
+                                dir = "Left";
+                            }
+                            
                         }
                     }
                     else
@@ -58,12 +126,41 @@ public class PlayerMovement : MonoBehaviour
                         if (lp.y > fp.y)  //If the movement was up
                         {   //Up swipe
                             Debug.Log("Up Swipe");
-                            MoveForward(transform.forward);
+                            if (dir == "Right" || dir == "Left")
+                            {
+                                
+                                if (dir == "Left")
+                                {
+                                    newDirection = rightTarget.position - transform.position;
+                                }
+                                else if (dir == "Right")
+                                {
+                                    newDirection = leftTarget.position - transform.position;
+                                }
+                                    
+                                dir = "Up";
+                            }
+                            
+                            
                         }
                         else
                         {   //Down swipe
                             Debug.Log("Down Swipe");
-                            MoveForward(-transform.forward);
+                            if (dir == "Right" || dir == "Left")
+                            {
+                                
+                                if (dir == "Left")
+                                {
+                                    newDirection = leftTarget.position - transform.position;
+                                }
+                                else if (dir == "Right")
+                                {
+                                    newDirection = rightTarget.position - transform.position;
+                                }
+                                
+                                dir = "Down";
+                            }
+
                         }
                     }
                 }
@@ -75,25 +172,9 @@ public class PlayerMovement : MonoBehaviour
         }
 
 
-
-        //PC Movement
-        if (Input.GetKeyUp(KeyCode.W))
-        {
-            MoveForward(transform.forward); 
-        }
-        else if (Input.GetKeyUp(KeyCode.S))
-        {
-            MoveForward(-transform.forward);
-        }
-        else if (Input.GetKeyUp(KeyCode.A))
-        {
-            MoveForward(-transform.right);
-
-        }
-        else if (Input.GetKeyUp(KeyCode.D))
-        {
-            MoveForward(transform.right);
-        }
+        //rotating the head
+        Quaternion rotation = Quaternion.LookRotation(newDirection);
+        transform.rotation = rotation;
 
     }
 
@@ -104,6 +185,46 @@ public class PlayerMovement : MonoBehaviour
 
         rb.velocity = dir * speed * Time.deltaTime;
 
+        for (int i = 1; i < snake.Count; i++)
+        {
+            curBodyPart = snake[i];
+            prevBodyPart = snake[i - 1];
+
+            dis = Vector3.Distance(prevBodyPart.position, curBodyPart.position);
+
+            Vector3 newPos = prevBodyPart.position;
+
+            newPos.y = snake[0].position.y;
+
+            float T = Time.deltaTime * dis / minDistance * rotateSpeed;
+
+            if (T > .5f)
+            {
+                T = .5f;
+            }
+
+            curBodyPart.position = Vector3.Slerp(curBodyPart.position, newPos, T);
+            curBodyPart.rotation = Quaternion.Slerp(curBodyPart.rotation, prevBodyPart.rotation, T);
+        }
+
     }
 
+    public void AddBodyPart()
+    {
+        Transform newPart = (Instantiate(midSection,snake[snake.Count - 1].position, 
+            snake[snake.Count - 1].rotation) as GameObject).transform;
+
+        //newPart.SetParent(transform);
+
+        snake.Add(newPart);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (collision.gameObject.tag == "Food")
+        {
+            AddBodyPart();
+            Destroy(collision.gameObject);
+        }
+    }
 }
